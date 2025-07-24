@@ -1,0 +1,160 @@
+
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kasir Full Offline</title>
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#0ea5e9" />
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-4">
+  <div class="max-w-5xl mx-auto bg-white rounded-xl shadow p-6">
+    <h1 class="text-2xl font-bold mb-4 text-blue-600">🛒 Kasir Offline - Fitur Lengkap</h1>
+    <div class="grid md:grid-cols-6 gap-4 mb-4">
+      <input id="product-name" placeholder="Nama Produk" class="border px-3 py-2 rounded" />
+      <input id="unit-name3" placeholder="Satuan Kecil (pcs)" class="border px-3 py-2 rounded" />
+      <input id="price-ecer" type="number" placeholder="Harga Ecer" class="border px-3 py-2 rounded" />
+      <input id="price-grosir" type="number" placeholder="Harga Grosir" class="border px-3 py-2 rounded" />
+      <input id="price-reseller" type="number" placeholder="Harga Reseller" class="border px-3 py-2 rounded" />
+      <input id="unit-name2" placeholder="Satuan Tengah (pack)" class="border px-3 py-2 rounded" />
+      <input id="unit2-multiplier" type="number" placeholder="1 pack = ? pcs" class="border px-3 py-2 rounded" />
+      <input id="unit-name1" placeholder="Satuan Besar (dus)" class="border px-3 py-2 rounded" />
+      <input id="unit1-multiplier" type="number" placeholder="1 dus = ? pack" class="border px-3 py-2 rounded" />
+      <button onclick="addProduct()" class="col-span-full bg-green-500 text-white px-4 py-2 rounded">Simpan Produk</button>
+    </div>
+
+    <div class="grid md:grid-cols-5 gap-4 mb-6">
+      <select id="select-product" class="border px-3 py-2 rounded"></select>
+      <select id="select-unit" class="border px-3 py-2 rounded"></select>
+      <select id="select-price-level" class="border px-3 py-2 rounded">
+        <option value="ecer">Ecer</option>
+        <option value="grosir">Grosir</option>
+        <option value="reseller">Reseller</option>
+      </select>
+      <input id="qty" type="number" placeholder="Jumlah" class="border px-3 py-2 rounded" />
+      <button onclick="addToCart()" class="bg-blue-500 text-white px-4 py-2 rounded">+ Tambah</button>
+    </div>
+
+    <h2 class="text-lg font-bold mt-4 mb-2 text-gray-700">📦 Produk</h2>
+    <table class="w-full text-sm border mb-4">
+      <thead class="bg-gray-100">
+        <tr><th>Nama</th><th>Satuan</th><th>Harga</th><th>Konversi</th><th>Aksi</th></tr>
+      </thead>
+      <tbody id="product-list" class="bg-white"></tbody>
+    </table>
+
+    <h2 class="text-lg font-bold mt-6 mb-2 text-gray-700">🧾 Keranjang</h2>
+    <table class="w-full text-sm border mb-4">
+      <thead class="bg-blue-100"><tr><th>Produk</th><th>Jumlah</th><th>Satuan</th><th>Harga</th><th>Subtotal</th><th>Aksi</th></tr></thead>
+      <tbody id="cart-list" class="bg-white"></tbody>
+    </table>
+
+    <div class="text-right text-lg font-bold text-green-600 mb-4">Total: Rp <span id="total">0</span></div>
+    <button onclick="clearCart()" class="bg-red-500 text-white px-4 py-2 rounded">🗑 Reset</button>
+  </div>
+
+<script>
+let products = JSON.parse(localStorage.getItem("products") || "[]");
+let cart = JSON.parse(localStorage.getItem("cart") || "[]");
+let editingIndex = null;
+
+function saveStorage() {
+  localStorage.setItem("products", JSON.stringify(products));
+  localStorage.setItem("cart", JSON.stringify(cart));
+}
+
+function addProduct() {
+  const p = {
+    name: product-name.value,
+    unit3: unit-name3.value,
+    unit2: unit-name2.value,
+    unit1: unit-name1.value,
+    harga: {
+      ecer: parseFloat(price-ecer.value),
+      grosir: parseFloat(price-grosir.value),
+      reseller: parseFloat(price-reseller.value)
+    },
+    konversi: {}
+  };
+  let m2 = parseInt(unit2-multiplier.value);
+  let m1 = parseInt(unit1-multiplier.value);
+  p.konversi[p.unit3] = 1;
+  p.konversi[p.unit2] = m2;
+  p.konversi[p.unit1] = m1 * m2;
+
+  if (editingIndex !== null) {
+    products[editingIndex] = p;
+    editingIndex = null;
+  } else {
+    products.push(p);
+  }
+  saveStorage(); renderProducts(); renderProductTable(); document.querySelectorAll("input").forEach(i => i.value = "");
+}
+
+function renderProducts() {
+  select-product.innerHTML = products.map((p, i) => `<option value="${i}">${p.name}</option>`).join("");
+  renderUnits();
+}
+function renderUnits() {
+  const product = products[select-product.value];
+  if (!product) return;
+  select-unit.innerHTML = [product.unit1, product.unit2, product.unit3].map(u => `<option value="${u}">${u}</option>`).join("");
+}
+function addToCart() {
+  const index = select-product.value;
+  const unit = select-unit.value;
+  const level = select-price-level.value;
+  const qty = parseInt(qty.value);
+  const p = products[index];
+  const harga = p.harga[level];
+  const totalUnit = qty * p.konversi[unit];
+  cart.push({ name: p.name, qty, unit, level, price: harga, subtotal: harga * totalUnit });
+  saveStorage(); renderCart();
+}
+function renderCart() {
+  let total = 0;
+  cart-list.innerHTML = cart.map((item, i) => {
+    total += item.subtotal;
+    return `<tr><td>${item.name}</td><td>${item.qty}</td><td>${item.unit}</td><td>Rp ${item.price}</td><td>Rp ${item.subtotal}</td><td><button onclick="removeItem(${i})" class="text-red-500">Hapus</button></td></tr>`;
+  }).join("");
+  total.textContent = total.toLocaleString();
+}
+function removeItem(i) { cart.splice(i, 1); saveStorage(); renderCart(); }
+function clearCart() { if (confirm("Hapus semua item?")) { cart = []; saveStorage(); renderCart(); } }
+
+function renderProductTable() {
+  product-list.innerHTML = products.map((p, i) => `
+    <tr><td>${p.name}</td><td>${p.unit1}, ${p.unit2}, ${p.unit3}</td>
+    <td>${p.harga.ecer}/${p.harga.grosir}/${p.harga.reseller}</td>
+    <td>${p.konversi[p.unit1]}=${p.konversi[p.unit2]}=1 ${p.unit3}</td>
+    <td><button onclick="editProduct(${i})" class="text-blue-500">Edit</button></td></tr>`).join("");
+}
+function editProduct(i) {
+  let p = products[i];
+  editingIndex = i;
+  product-name.value = p.name;
+  unit-name3.value = p.unit3;
+  unit-name2.value = p.unit2;
+  unit-name1.value = p.unit1;
+  price-ecer.value = p.harga.ecer;
+  price-grosir.value = p.harga.grosir;
+  price-reseller.value = p.harga.reseller;
+  unit2-multiplier.value = p.konversi[p.unit2];
+  unit1-multiplier.value = p.konversi[p.unit1] / p.konversi[p.unit2];
+}
+renderProducts(); renderUnits(); renderCart(); renderProductTable();
+select-product.addEventListener("change", renderUnits);
+
+// PWA Service Worker
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('service-worker.js')
+      .then(reg => console.log('SW registered:', reg.scope))
+      .catch(err => console.error('SW failed:', err));
+  });
+}
+</script>
+</body>
+</html>
